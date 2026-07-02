@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>판매 데이터 분석 대시보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #1a1a3e, #24243e);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dashboard-header {
+            text-align: center;
+            padding: 30px 20px;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+        }
+
+        .dashboard-header h1 {
+            font-size: 2.2em;
+            font-weight: 900;
+            background: linear-gradient(90deg, #00d2ff, #7b2ff7, #ff6b9d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            letter-spacing: -1px;
+        }
+
+        .dashboard-header p {
+            color: #8888aa;
+            font-size: 1em;
+            font-weight: 300;
+        }
+
+        /* KPI Cards */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .kpi-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            border-radius: 16px 16px 0 0;
+        }
+
+        .kpi-card:nth-child(1)::before { background: linear-gradient(90deg, #00d2ff, #0090ff); }
+        .kpi-card:nth-child(2)::before { background: linear-gradient(90deg, #7b2ff7, #a855f7); }
+        .kpi-card:nth-child(3)::before { background: linear-gradient(90deg, #ff6b9d, #ff4081); }
+        .kpi-card:nth-child(4)::before { background: linear-gradient(90deg, #00e676, #00c853); }
+        .kpi-card:nth-child(5)::before { background: linear-gradient(90deg, #ffab40, #ff6d00); }
+
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .kpi-card .kpi-label {
+            font-size: 0.85em;
+            color: #8888aa;
+            font-weight: 400;
+            margin-bottom: 8px;
+        }
+
+        .kpi-card .kpi-value {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .kpi-card .kpi-sub {
+            font-size: 0.8em;
+            color: #666688;
+            margin-top: 6px;
+        }
+
+        /* Chart Container */
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            margin-bottom: 30px;
+        }
+
+        .chart-grid.three-col {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .chart-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+            border-radius: 20px;
+            padding: 28px;
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s;
+        }
+
+        .chart-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .chart-card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .chart-card h2 {
+            font-size: 1.15em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #ccccdd;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chart-card h2 .icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1em;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            height: 350px;
+        }
+
+        .chart-wrapper.tall {
+            height: 420px;
+        }
+
+        /* Data Table */
+        .table-container {
+            background: linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+            border-radius: 20px;
+            padding: 28px;
+            border: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+
+        .table-container h2 {
+            font-size: 1.15em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #ccccdd;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.9em;
+        }
+
+        thead th {
+            background: rgba(255,255,255,0.08);
+            padding: 14px 16px;
+            text-align: right;
+            font-weight: 600;
+            color: #aaaaaa;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+            white-space: nowrap;
+        }
+
+        thead th:first-child {
+            text-align: left;
+            border-radius: 10px 0 0 0;
+        }
+
+        thead th:last-child {
+            border-radius: 0 10px 0 0;
+        }
+
+        tbody td {
+            padding: 12px 16px;
+            text-align: right;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-variant-numeric: tabular-nums;
+        }
+
+        tbody td:first-child {
+            text-align: left;
+            font-weight: 600;
+        }
+
+        tbody tr:hover td {
+            background: rgba(255,255,255,0.04);
+        }
+
+        tbody tr:last-child td:first-child {
+            border-radius: 0 0 0 10px;
+        }
+
+        tbody tr:last-child td:last-child {
+            border-radius: 0 0 10px 0;
+        }
+
+        .product-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        /* Heatmap */
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: 100px repeat(10, 1fr);
+            gap: 3px;
+            font-size: 0.8em;
+        }
+
+        .heatmap-cell {
+            padding: 10px 6px;
+            text-align: center;
+            border-radius: 8px;
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+            transition: transform 0.2s;
+            cursor: default;
+        }
+
+        .heatmap-cell:hover {
+            transform: scale(1.08);
+            z-index: 1;
+        }
+
+        .heatmap-header {
+            background: rgba(255,255,255,0.06);
+            color: #8888aa;
+            font-weight: 600;
+            padding: 10px 6px;
+            text-align: center;
+            border-radius: 8px;
+        }
+
+        .heatmap-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: #aaaaaa;
+            padding: 10px 6px;
+        }
+
+        /* Insight Section */
+        .insight-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .insight-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .insight-card h3 {
+            font-size: 1em;
+            font-weight: 600;
+            color: #ccccdd;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .insight-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .insight-card li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.9em;
+            color: #9999bb;
+            line-height: 1.6;
+        }
+
+        .insight-card li:last-child {
+            border-bottom: none;
+        }
+
+        .highlight {
+            color: #00d2ff;
+            font-weight: 600;
+        }
+
+        .highlight-purple {
+            color: #a855f7;
+            font-weight: 600;
+        }
+
+        .highlight-green {
+            color: #00e676;
+            font-weight: 600;
+        }
+
+        .highlight-orange {
+            color: #ffab40;
+            font-weight: 600;
+        }
+
+        .highlight-pink {
+            color: #ff6b9d;
+            font-weight: 600;
+        }
+
+        @media (max-width: 1024px) {
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+            .chart-grid.three-col {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .dashboard-header h1 {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-header">
+        <h1>📊 과일/채소 판매 데이터 분석 대시보드</h1>
+        <p>2023년 3월 1일 ~ 3월 10일 | 5개 제품 일일 매출 분석</p>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- Row 1: Line Chart + Bar Chart -->
+    <div class="chart-grid">
+        <div class="chart-card full-width">
+            <h2>
+                <span class="icon" style="background:rgba(0,210,255,0.15); color:#00d2ff;">📈</span>
+                일일 매출 추이 (라인 차트)
+            </h2>
+            <div class="chart-wrapper tall">
+                <canvas id="lineChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Total Bar + Donut -->
+    <div class="chart-grid">
+        <div class="chart-card">
+            <h2>
+                <span class="icon" style="background:rgba(168,85,247,0.15); color:#a855f7;">📊</span>
+                제품별 총 매출 (막대 차트)
+            </h2>
+            <div class="chart-wrapper">
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h2>
+                <span class="icon" style="background:rgba(255,107,157,0.15); color:#ff6b9d;">🍩</span>
+                제품별 매출 점유율 (도넛 차트)
+            </h2>
+            <div class="chart-wrapper">
+                <canvas id="donutChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 3: Stacked Area + Radar -->
+    <div class="chart-grid">
+        <div class="chart-card">
+            <h2>
+                <span class="icon" style="background:rgba(0,230,118,0.15); color:#00e676;">📉</span>
+                누적 매출 추이 (스택드 영역 차트)
+            </h2>
+            <div class="chart-wrapper">
+                <canvas id="areaChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h2>
+                <span class="icon" style="background:rgba(255,171,64,0.15); color:#ffab40;">🎯</span>
+                제품별 일별 평균 (레이더 차트)
+            </h2>
+            <div class="chart-wrapper">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 4: Horizontal Bar + Polar -->
+    <div class="chart-grid">
+        <div class="chart-card">
+            <h2>
+                <span class="icon" style="background:rgba(0,210,255,0.15); color:#00d2ff;">📏</span>
+                제품별 일별 매출 (수평 막대)
+            </h2>
+            <div class="chart-wrapper tall">
+                <canvas id="hBarChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h2>
+                <span class="icon" style="background:rgba(168,85,247,0.15); color:#a855f7;">🌐</span>
+                제품별 변동성 분석 (편차)
+            </h2>
+            <div class="chart-wrapper tall">
+                <canvas id="polarChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Heatmap -->
+    <div class="chart-card full-width" style="margin-bottom:30px;">
+        <h2>
+            <span class="icon" style="background:rgba(255,255,255,0.1); color:#ffffff;">🗓️</span>
+            일일 매출 히트맵
+        </h2>
+        <div id="heatmapContainer"></div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="table-container">
+        <h2>
+            <span class="icon" style="background:rgba(0,210,255,0.15); color:#00d2ff;">📋</span>
+            원시 데이터 표
+        </h2>
+        <table id="dataTable"></table>
+    </div>
+
+    <!-- Insights -->
+    <div class="insight-grid">
+        <div class="insight-card">
+            <h3>💡 주요 인사이트</h3>
+            <ul id="insights"></ul>
+        </div>
+        <div class="insight-card">
+            <h3>📌 통계 요약</h3>
+            <ul id="stats"></ul>
+        </div>
+    </div>
+
+    <script>
+        // ===== DATA =====
+        const rawData = [
+            {product:'apple',     date:'20230301', amount:896164},
+            {product:'apple',     date:'20230302', amount:863499},
+            {product:'apple',     date:'20230303', amount:847003},
+            {product:'apple',     date:'20230304', amount:907378},
+            {product:'apple',     date:'20230305', amount:792509},
+            {product:'apple',     date:'20230306', amount:417674},
+            {product:'apple',     date:'20230307', amount:413136},
+            {product:'apple',     date:'20230308', amount:365376},
+            {product:'apple',     date:'20230309', amount:413303},
+            {product:'apple',     date:'20230310', amount:607937},
+            {product:'orange',    date:'20230301', amount:240897},
+            {product:'orange',    date:'20230302', amount:228140},
+            {product:'orange',    date:'20230303', amount:224348},
+            {product:'orange',    date:'20230304', amount:142737},
+            {product:'orange',    date:'20230305', amount:142389},
+            {product:'orange',    date:'20230306', amount:178774},
+            {product:'orange',    date:'20230307', amount:207245},
+            {product:'orange',    date:'20230308', amount:213839},
+            {product:'orange',    date:'20230309', amount:165265},
+            {product:'orange',    date:'20230310', amount:186554},
+            {product:'blueberry', date:'20230301', amount:157726},
+            {product:'blueberry', date:'20230302', amount:170430},
+            {product:'blueberry', date:'20230303', amount:155380},
+            {product:'blueberry', date:'20230304', amount:175185},
+            {product:'blueberry', date:'20230305', amount:157642},
+            {product:'blueberry', date:'20230306', amount:152816},
+            {product:'blueberry', date:'20230307', amount:148224},
+            {product:'blueberry', date:'20230308', amount:144771},
+            {product:'blueberry', date:'20230309', amount:144176},
+            {product:'blueberry', date:'20230310', amount:147831},
+            {product:'tomato',    date:'20230301', amount:326682},
+            {product:'tomato',    date:'20230302', amount:347931},
+            {product:'tomato',    date:'20230303', amount:348051},
+            {product:'tomato',    date:'20230304', amount:307403},
+            {product:'tomato',    date:'20230305', amount:303957},
+            {product:'tomato',    date:'20230306', amount:347073},
+            {product:'tomato',    date:'20230307', amount:369373},
+            {product:'tomato',    date:'20230308', amount:363429},
+            {product:'tomato',    date:'20230309', amount:341745},
+            {product:'tomato',    date:'20230310', amount:464101},
+            {product:'banana',    date:'20230301', amount:998817},
+            {product:'banana',    date:'20230302', amount:985773},
+            {product:'banana',    date:'20230303', amount:969712},
+            {product:'banana',    date:'20230304', amount:1022977},
+            {product:'banana',    date:'20230305', amount:970365},
+            {product:'banana',    date:'20230306', amount:964542},
+            {product:'banana',    date:'20230307', amount:1122334},
+            {product:'banana',    date:'20230308', amount:1003939},
+            {product:'banana',    date:'20230309', amount:1020687},
+            {product:'banana',    date:'20230310', amount:962641},
+        ];
+
+        const products = ['apple','orange','blueberry','tomato','banana'];
+        const productNames = {apple:'사과', orange:'귤', blueberry:'블루베리', tomato:'토마토', banana:'바나나'};
+        const productColors = {
+            apple: '#ff6b6b',
+            orange: '#ffa726',
+            blueberry: '#7c4dff',
+            tomato: '#ef5350',
+            banana: '#ffee58'
+        };
+        const productColorsRGBA = {
+            apple: 'rgba(255,107,107,',
+            orange: 'rgba(255,167,38,',
+            blueberry: 'rgba(124,77,255,',
+            tomato: 'rgba(239,83,80,',
+            banana: 'rgba(255,238,88,'
+        };
+
+        const dates = [];
+        for (let i = 1; i <= 10; i++) {
+            dates.push(`3/${i}`);
+        }
+
+        // Build structured data
+        const dataByProduct = {};
+        products.forEach(p => {
+            dataByProduct[p] = rawData.filter(r => r.product === p).map(r => r.amount);
+        });
+
+        // Calculate stats
+        const totalSales = rawData.reduce((s, r) => s + r.amount, 0);
+        const dailyTotals = dates.map((_, di) => {
+            return products.reduce((s, p) => s + dataByProduct[p][di], 0);
+        });
+        const maxDaily = Math.max(...dailyTotals);
+        const minDaily = Math.min(...dailyTotals);
+        const avgDaily = dailyTotals.reduce((a,b) => a+b, 0) / dailyTotals.length;
+
+        const productTotals = {};
+        const productAvgs = {};
+        const productMax = {};
+        const productMin = {};
+        const productStd = {};
+        products.forEach(p => {
+            productTotals[p] = dataByProduct[p].reduce((a,b) => a+b, 0);
+            productAvgs[p] = productTotals[p] / 10;
+            productMax[p] = Math.max(...dataByProduct[p]);
+            productMin[p] = Math.min(...dataByProduct[p]);
+            const mean = productAvgs[p];
+            productStd[p] = Math.sqrt(dataByProduct[p].reduce((s,v) => s + (v-mean)**2, 0) / 10);
+        });
+
+        // ===== KPI CARDS =====
+        const topProduct = products.reduce((a, b) => productTotals[a] > productTotals[b] ? a : b);
+        const bottomProduct = products.reduce((a, b) => productTotals[a] < productTotals[b] ? a : b);
+        const topDayIdx = dailyTotals.indexOf(maxDaily);
+        const totalTransactions = rawData.length;
+
+        const kpis = [
+            { label: '총 매출액', value: '₩' + (totalSales / 10000).toFixed(1) + '만', sub: `${totalTransactions}건 거래 데이터` },
+            { label: '일일 평균 매출', value: '₩' + (avgDaily / 10000).toFixed(1) + '만', sub: `총 10일 기준` },
+            { label: '최고 매출 제품', value: productNames[topProduct], sub: `₩${productTotals[topProduct].toLocaleString()}` },
+            { label: '최저 매출 제품', value: productNames[bottomProduct], sub: `₩${productTotals[bottomProduct].toLocaleString()}` },
+            { label: '최고 일일 매출', value: '₩' + (maxDaily / 10000).toFixed(1) + '만', sub: `3월 ${topDayIdx + 1}일` },
+        ];
+
+        const kpiGrid = document.getElementById('kpiGrid');
+        kpis.forEach(kpi => {
+            kpiGrid.innerHTML += `
+                <div class="kpi-card">
+                    <div class="kpi-label">${kpi.label}</div>
+                    <div class="kpi-value">${kpi.value}</div>
+                    <div class="kpi-sub">${kpi.sub}</div>
+                </div>
+            `;
+        });
+
+        // ===== CHART DEFAULTS =====
+        Chart.defaults.color = '#8888aa';
+        Chart.defaults.font.family = "'Noto Sans KR', sans-serif";
+        Chart.defaults.plugins.legend.labels.usePointStyle = true;
+        Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
+        Chart.defaults.plugins.legend.labels.padding = 16;
+
+        const tooltipStyle = {
+            backgroundColor: 'rgba(15, 12, 41, 0.95)',
+            titleColor: '#ffffff',
+            bodyColor: '#ccccdd',
+            borderColor: 'rgba(255,255,255,0.1)',
+            borderWidth: 1,
+            cornerRadius: 10,
+            padding: 12,
+            displayColors: true,
+        };
+
+        // ===== 1. LINE CHART =====
+        new Chart(document.getElementById('lineChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: products.map(p => ({
+                    label: productNames[p],
+                    data: dataByProduct[p],
+                    borderColor: productColors[p],
+                    backgroundColor: productColorsRGBA[p] + '0.1)',
+                    borderWidth: 2.5,
+                    pointRadius: 4,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: productColors[p],
+                    pointBorderColor: '#1a1a3e',
+                    pointBorderWidth: 2,
+                    tension: 0.3,
+                    fill: false,
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: tooltipStyle,
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                        ticks: { color: '#8888aa' }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                        ticks: {
+                            color: '#8888aa',
+                            callback: v => '₩' + (v/1000).toFixed(0) + 'K'
+                        }
+                    }
+                }
+            }
+        });
+
+        // ===== 2. BAR CHART =====
+        const sortedProducts = [...products].sort((a,b) => productTotals[b] - productTotals[a]);
+        new Chart(document.getElementById('barChart'), {
+            type: 'bar',
+            data: {
+                labels: sortedProducts.map(p => productNames[p]),
+                datasets: [{
+                    label: '총 매출액',
+                    data: sortedProducts.map(p => productTotals[p]),
+                    backgroundColor: sortedProducts.map(p => productColorsRGBA[p] + '0.7)'),
+                    borderColor: sortedProducts.map(p => productColors[p]),
+                    borderWidth: 2,
+                    borderRadius: 10,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        ...tooltipStyle,
+                        callbacks: {
+                            label: ctx => `₩${ctx.raw.toLocaleString()}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#8888aa' }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                        ticks: {
+                            color: '#8888aa',
+                            callback: v => '₩' + (v/10000).toFixed(0) + '만'
+                        }
+                    }
+                }
+            }
+        });
+
+        // ===== 3. DONUT CHART =====
+        new Chart(document.getElementById('donutChart'), {
+            type: 'doughnut',
+            data: {
+                labels: products.map(p => productNames[p]),
+                datasets: [{
+                    data: products.map(p => productTotals[p]),
+                    backgroundColor: products.map(p => productColorsRGBA[p] + '0.75)'),
+                    borderColor: products.map(p => productColors[p]),
+                    borderWidth: 2,
+                    hoverOffset: 15,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'right' },
+                    tooltip: {
+                        ...tooltipStyle,
+                        callbacks: {
+                            label: ctx => {
+                                const pct = ((ctx.raw / totalSales) * 100).toFixed(1);
+                                return `${ctx.label}: ₩${ctx.raw.toLocaleString()} (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // ===== 4. STACKED AREA CHART =====
+        new Chart(document.getElementById('areaChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: products.map(p => ({
+                    label: productNames[p],
+                    data: dataByProduct[p],
+                    borderColor: productColors[p],
+                    backgroundColor: productColorsRGBA[p] + '0.25)',
+                    borderWidth: 1.5,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    tension: 0.3,
+                    fill: true,
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: tooltipStyle,
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: { color: 'rgba(255,255,255,0.04)' }
+                    },
+                    y: {
+                        stacked: true,
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                        ticks: {
+                            color: '#8888aa',
+                            callback: v => '₩' + (v/1000).toFixed(0) + 'K'
+                        }
+                    }
+                }
+            }
+        });
+
+        // ===== 5. RADAR CHART =====
+        new Chart(document.getElementById('radarChart'), {
+            type: 'radar',
+            data: {
+                labels: products.map(p => productNames[p]),
+                datasets: [{
+                    label: '일별 평균 매출',
+                    data: products.map(p => productAvgs[p]),
+                    backgroundColor: 'rgba(124,77,255,0.15)',
+                    borderColor: '#7c4dff',
+                    borderWidth: 2,
+                    pointBackgroundColor: products.map(p => productColors[p]),
+                    pointBorderColor: '#1a1a3e',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        ...tooltipStyle,
+                        callbacks: {
+                            label: ctx => `평균: ₩${ctx.raw.toLocaleString()}`
+                        }
+                    }
+                },
+                scales: {
+                    r: {
+                        grid: { color: 'rgba(255,255,255,0.06)' },
+                        angleLines: { color: 'rgba(255,255,255,0.06)' },
+                        pointLabels: { color: '#aaaacc', font: { size: 13, weight: '600' } },
+                        ticks: {
+                            display: false,
+                        },
+                        suggestedMin: 100000,
+                        suggestedMax: 1200000,
+                    }
+                }
+            }
+        });
+
+        // ===== 6. HORIZONTAL BAR CHART =====
+        const hBarLabels = [];
+        const hBarData = [];
+        const hBarBgColors = [];
+        products.forEach(p => {
+            for (let d = 0; d < 10; d++) {
+                hBarLabels.push(`${productNames[p]} 3/${d+1}`);
+                hBarData.push(dataByProduct[p][d]);
+                hBarBgColors.push(productColorsRGBA[p] + '0.5)');
+            }
+        });
+
+        new Chart(document.getElementById('hBarChart'), {
+            type: 'bar',
+            data: {
+                labels: hBarLabels,
+                datasets: [{
+                    label: '매출액',
+                    data: hBarData,
+                    backgroundColor: hBarBgColors,
+                    borderRadius: 4,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        ...tooltipStyle,
+                        callbacks: {
+                            label: ctx => `₩${ctx.raw.toLocaleString()}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                        ticks: {
+                            color: '#8888aa',
+                            callback: v => '₩' + (v/1000).toFixed(0) + 'K'
+                        }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: '#8888aa', font: { size: 11 } }
+                    }
+                }
+            }
+        });
+
+        // ===== 7. POLAR AREA CHART =====
+        new Chart(document.getElementById('polarChart'), {
+            type: 'polarArea',
+            data: {
+                labels: products.map(p => productNames[p]),
+                datasets: [{
+                    data: products.map(p => productStd[p]),
+                    backgroundColor: products.map(p => productColorsRGBA[p] + '0.5)'),
+                    borderColor: products.map(p => productColors[p]),
+                    borderWidth: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' },
+                    tooltip: {
+                        ...tooltipStyle,
+                        callbacks: {
+                            label: ctx => `표준편차: ₩${ctx.raw.toLocaleString()}`
+                        }
+                    }
+                },
+                scales: {
+                    r: {
+                        grid: { color: 'rgba(255,255,255,0.06)' },
+                        ticks: {
+                            display: false,
+                        }
+                    }
+                }
+            }
+        });
+
+        // ===== HEATMAP =====
+        const heatmapContainer = document.getElementById('heatmapContainer');
+        let heatmapHTML = '<div class="heatmap-grid">';
+        heatmapHTML += '<div class="heatmap-header"></div>';
+        dates.forEach(d => {
+            heatmapHTML += `<div class="heatmap-header">${d}</div>`;
+        });
+
+        products.forEach(p => {
+            heatmapHTML += `<div class="heatmap-label">${productNames[p]}</div>`;
+            dataByProduct[p].forEach(val => {
+                const ratio = (val - productMin[p]) / (productMax[p] - productMin[p]);
+                const r = Math.round(40 + ratio * 180);
+                const g = Math.round(40 + (1 - Math.abs(ratio - 0.5) * 2) * 100);
+                const b = Math.round(80 - ratio * 40);
+                const alpha = 0.4 + ratio * 0.6;
+                const bg = `rgba(${r},${g},${b},${alpha})`;
+                const textColor = ratio > 0.6 ? '#ffffff' : '#cccccc';
+                heatmapHTML += `<div class="heatmap-cell" style="background:${bg}; color:${textColor};" title="${productNames[p]} 3월: ₩${val.toLocaleString()}">₩${(val/1000).toFixed(0)}K</div>`;
+            });
+        });
+
+        heatmapHTML += '</div>';
+        heatmapContainer.innerHTML = heatmapHTML;
+
+        // ===== DATA TABLE =====
+        const table = document.getElementById('dataTable');
+        let tableHTML = `
+            <thead>
+                <tr>
+                    <th>제품</th>
+                    <th>판매일</th>
+                    <th>매출액 (₩)</th>
+                    <th>제품별 평균 대비</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+
+        rawData.forEach(r => {
+            const diff = ((r.amount - productAvgs[r.product]) / productAvgs[r.product] * 100).toFixed(1);
+            const diffColor = diff > 0 ? '#00e676' : diff < 0 ? '#ff6b6b' : '#8888aa';
+            const diffSign = diff > 0 ? '+' : '';
+            tableHTML += `
+                <tr>
+                    <td><span class="product-dot" style="background:${productColors[r.product]}"></span>${productNames[r.product]}</td>
+                    <td>${r.date.slice(0,4)}.${r.date.slice(4,6)}.${r.date.slice(6,8)}</td>
+                    <td style="font-weight:600;">₩${r.amount.toLocaleString()}</td>
+                    <td style="color:${diffColor}; font-weight:600;">${diffSign}${diff}%</td>
+                </tr>
+            `;
+        });
+
+        tableHTML += '</tbody>';
+        table.innerHTML = tableHTML;
+
+        // ===== INSIGHTS =====
+        const insightsEl = document.getElementById('insights');
+        const growthData = {};
+        products.forEach(p => {
+            const firstHalf = dataByProduct[p].slice(0, 5).reduce((a,b) => a+b, 0);
+            const secondHalf = dataByProduct[p].slice(5, 10).reduce((a,b) => a+b, 0);
+            growthData[p] = ((secondHalf - firstHalf) / firstHalf * 100).toFixed(1);
+        });
+
+        const mostVolatile = products.reduce((a,b) => productStd[a] > productStd[b] ? a : b);
+        const leastVolatile = products.reduce((a,b) => productStd[a] < productStd[b] ? a : b);
+        const maxGrowthProduct = products.reduce((a,b) => growthData[a] > growthData[b] ? a : b);
+        const minGrowthProduct = products.reduce((a,b) => growthData[a] < growthData[b] ? a : b);
+
+        insightsEl.innerHTML = `
+            <li>🥇 <span class="highlight">바나나</span>가 총 매출 <span class="highlight">₩${productTotals.banana.toLocaleString()}</span>로 1위를 기록하며 전체의 <span class="highlight">${((productTotals.banana/totalSales)*100).toFixed(1)}%</span>를 차지</li>
+            <li>📉 <span class="highlight-pink">사과</span>가 하반주일(3/6~3/10)에 매출이 급감하여 <span class="highlight-pink">${growthData.apple}%</span>의 하락률 기록 (상반주 대비)</li>
+            <li>📈 <span class="highlight-green">토마토</span>가 하반주에 <span class="highlight-green">${growthData.tomato}%</span> 증가하며 가장 큰 성장세 보임</li>
+            <li>🔵 <span class="highlight-purple">블루베리</span>가 일일 평균 <span class="highlight-purple">₩${productAvgs.blueberry.toLocaleString()}</span>으로 가장 낮은 매출, 가장 안정적</li>
+            <li>⚡ <span class="highlight-orange">${productNames[mostVolatile]}</span>이(가) 표준편차 <span class="highlight-orange">₩${productStd[mostVolatile].toLocaleString()}</span>로 변동성 가장 큼</li>
+            <li>🏆 3월 7일이 일일 총 매출 <span class="highlight">₩${maxDaily.toLocaleString()}</span>로 최고 기록</li>
+        `;
+
+        const statsEl = document.getElementById('stats');
+        statsEl.innerHTML = `
+            <li>📊 전체 기간: <span class="highlight">2023.03.01 ~ 2023.03.10</span> (10일)</li>
+            <li>📦 제품 수: <span class="highlight">5종</span> (사과, 귤, 블루베리, 토마토, 바나나)</li>
+            <li>💰 총 매출: <span class="highlight">₩${totalSales.toLocaleString()}</span></li>
+            <li>📈 일일 평균: <span class="highlight">₩${Math.round(avgDaily).toLocaleString()}</span></li>
+            <li>🔥 최고 일일: <span class="highlight-green">₩${maxDaily.toLocaleString()}</span> (3/${topDayIdx+1})</li>
+            <li>❄️ 최저 일일: <span class="highlight-pink">₩${minDaily.toLocaleString()}</span> (3/${dailyTotals.indexOf(minDaily)+1})</li>
+            <li>📏 변동성 최대: <span class="highlight-orange">${productNames[mostVolatile]}</span> (표준편차 ₩${productStd[mostVolatile].toLocaleString()})</li>
+            <li>🎯 변동성 최소: <span class="highlight-purple">${productNames[leastVolatile]}</span> (표준편차 ₩${productStd[leastVolatile].toLocaleString()})</li>
+        `;
+    </script>
+</body>
+</html>
